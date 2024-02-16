@@ -1,9 +1,11 @@
-Shader "Chapter6/Lambert_VertexLevel"
+Shader "Chapter6/Specular_VertexLevel"
 {
     Properties
     {
         [MainTexture] _MainTex ("Texture", 2D) = "white" {}
         _Diffuse ("Diffuse", Color) = (1,1,1,1)
+        _Specular ("Specular", Color) = (1,1,1,1)
+        _Gloss ("Gloss", Range(0, 1)) = 0.5
 
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -45,6 +47,8 @@ Shader "Chapter6/Lambert_VertexLevel"
             };
 
             float4 _Diffuse;
+            float4 _Specular;
+            float _Gloss;
             TEXTURE2D( _MainTex);
             SAMPLER(sampler_MainTex);
             
@@ -52,36 +56,50 @@ Shader "Chapter6/Lambert_VertexLevel"
             v2f vert (Attributes v)
             {
                 v2f o;
-
+                
                 VertexPositionInputs positionInputs = GetVertexPositionInputs(v.vertex.xyz);
                 VertexNormalInputs normalInputs = GetVertexNormalInputs(v.normal);
-                o.PosCS = positionInputs.positionCS; 
+                o.PosCS = positionInputs.positionCS;
+                float3 PosWS = positionInputs.positionWS;
+                float3 normalWS = normalInputs.normalWS;
 
-                // 计算skybox光照
                 OUTPUT_LIGHTMAP_UV(v.lightmapUV, unity_LightmapST, v.lightmapUV);
-                OUTPUT_SH(normalInputs.normalWS, v.vertexSH);
-                half3 bakedGI = SAMPLE_GI(v.lvghtmapUV, v.vertexSH,normalInputs.normalWS);
+                OUTPUT_SH(normalWS, v.vertexSH);
+                
+                float2 uv = TRANSFORM_TEX(v.uv, _MainTex);
 
+                float4 baseMap = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv);
+
+                // Get Baked GI 
+                half3 Ambient = SAMPLE_GI(v.lightmapUV, v.vertexSH, normalWS);
+
+                // light info
+                // 获取主光源
                 Light mainLight = GetMainLight();
                 float3 lightDir = normalize(mainLight.direction);
                 float4 lightCol = float4(mainLight.color, 1.0f);
 
-                float2 uv = TRANSFORM_TEX(v.uv, _MainTex);
-                float4 baseMap = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv);
+                // Mix Realtime and Baked GI
+                // 获取环境光照 Ambient
+                MixRealtimeAndBakedGI(mainLight, normalWS, Ambient);
+
+                // 漫反射 Diffuse
+                float lambert  = saturate(dot(lightDir,normalWS));
+                float4 Diffuse = lightCol*_Diffuse*lambert;
                 
-                float lambert = saturate(dot(normalInputs.normalWS, lightDir));
-                float4 diffuse =  lightCol*_Diffuse*lambert;
+                //高光反射 Specular
+                float3 reflectDir = normalize(reflect(lightDir, normalWS));//反射方向
+                float3 viewDir = normalize(PosWS - _WorldSpaceCameraPos);//视角方向
+                float gloss = lerp(8,255,_Gloss);// 计算高光反射系数
+                float4 Specular = _Specular * lightCol * pow(saturate(dot( viewDir, reflectDir)), gloss) ;// 高光反射
 
-                o.color = float4(bakedGI,1.0f)+diffuse;
-
+                o.color =  float4( Ambient, 1.0f) + Diffuse + Specular;
                 return o;
             }
 
             float4 frag (v2f i) : SV_Target
             {
-                float4 col = i.color;
-
-                return col;
+                return i.color;
             }
             ENDHLSL
         }

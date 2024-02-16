@@ -56,7 +56,7 @@ Shader "Chapter6/Lambert_PixelLevel"
             {
                 v2f o;
 
-                VertexPositionInputs positionInputs = GetVertexPositionInputs(v.vertex);
+                VertexPositionInputs positionInputs = GetVertexPositionInputs(v.vertex.xyz);
                 VertexNormalInputs normalInputs = GetVertexNormalInputs(v.normal);
                 o.PosCS = positionInputs.positionCS;
                 o.PosWS = positionInputs.positionWS;
@@ -83,13 +83,13 @@ Shader "Chapter6/Lambert_PixelLevel"
                 // light info
                 Light mainLight = GetMainLight();
                 float3 lightDir = normalize(mainLight.direction);
-                float3 lightCol = mainLight.color;
+                float4 lightCol = float4(mainLight.color, 1.0f);
 
                 float lambert = saturate(dot(i.normalWS, lightDir));
-                float3 diffuse =  lightCol*_Diffuse*lambert;
+                float4 diffuse =  lightCol*_Diffuse*lambert;
                 MixRealtimeAndBakedGI(mainLight, i.normalWS, bakedGI);
                 // sample the texture
-                float4 col =float4( bakedGI+diffuse, 1.0f);
+                float4 col =float4( bakedGI, 1.0f)+ diffuse;
                 col*=baseMap;
                 return col;
             }

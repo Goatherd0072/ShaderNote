@@ -5,7 +5,7 @@ Shader "Chapter6/Specular_PixelLevel"
         [MainTexture] _MainTex ("Texture", 2D) = "white" {}
         _Diffuse ("Diffuse", Color) = (1,1,1,1)
         _Specular ("Specular", Color) = (1,1,1,1)
-        _Gloss ("Gloss", Range(0, 255)) = 0
+        _Gloss ("Gloss", Range(0, 1)) = 0.5
 
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -45,9 +45,8 @@ Shader "Chapter6/Specular_PixelLevel"
                 float2 uv : TEXCOORD0;
                 float4 PosCS : SV_POSITION;
                 DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 1);
-                float3 PosWS : TEXCOORD2;
-                float3 normalWS: TEXCOORD3;
-                float3 viewDirWS: TEXCOORD4;
+                float3 PosWS : POSITION1;
+                float3 normalWS: POSITION2;
             };
 
             float4 _Diffuse;
@@ -60,20 +59,16 @@ Shader "Chapter6/Specular_PixelLevel"
             v2f vert (Attributes v)
             {
                 v2f o;
-
-                VertexPositionInputs positionInputs = GetVertexPositionInputs(v.vertex);
+                
+                VertexPositionInputs positionInputs = GetVertexPositionInputs(v.vertex.xyz);
                 VertexNormalInputs normalInputs = GetVertexNormalInputs(v.normal);
                 o.PosCS = positionInputs.positionCS;
                 o.PosWS = positionInputs.positionWS;
                 o.normalWS = normalInputs.normalWS;
 
-                // o.normal = TransformObjectToWorldNormal(v.normal);
-                // o.vertex = TransformObjectToHClip(v.vertex);
-
                 OUTPUT_LIGHTMAP_UV(v.lightmapUV, unity_LightmapST, o.lightmapUV);
                 OUTPUT_SH(o.normalWS, o.vertexSH);
                 
-                o.viewDirWS = normalize( o.PosWS -_WorldSpaceCameraPos );
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 return o;
             }
@@ -83,28 +78,29 @@ Shader "Chapter6/Specular_PixelLevel"
                 float4 baseMap = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
 
                 // Get Baked GI 
-                half3 bakedGI = SAMPLE_GI(i.lightmapUV, i.vertexSH, i.normalWS);
+                half3 Ambient = SAMPLE_GI(i.lightmapUV, i.vertexSH, i.normalWS);
 
-                // lambert
                 // light info
+                // 获取主光源
                 Light mainLight = GetMainLight();
                 float3 lightDir = normalize(mainLight.direction);
-                float3 lightCol = mainLight.color;
+                float4 lightCol = float4(mainLight.color, 1.0f);
 
-                float lambert = saturate(dot(i.normalWS, lightDir));
-                float3 diffuse =  lightCol*_Diffuse*lambert;
-                MixRealtimeAndBakedGI(mainLight, i.normalWS, bakedGI);
+                // Mix Realtime and Baked GI
+                // 获取环境光照 Ambient
+                MixRealtimeAndBakedGI(mainLight, i.normalWS, Ambient);
 
-                float3 r = normalize(reflect(-lightDir, i.normalWS));
-                float3 viewDir = normalize(_WorldSpaceCameraPos -i.PosWS  );
+                // 漫反射 Diffuse
+                float lambert  = saturate(dot(lightDir,i.normalWS));
+                float4 Diffuse = lightCol*_Diffuse*lambert;
+                
+                //高光反射 Specular
+                float3 reflectDir = normalize(reflect(lightDir, i.normalWS));//反射方向
+                float3 viewDir = normalize(i.PosWS - _WorldSpaceCameraPos);//视角方向
+                float gloss = lerp(8,255,_Gloss);// 计算高光反射系数
+                float4 Specular = _Specular * lightCol * pow(saturate(dot( viewDir, reflectDir)), gloss) ;// 高光反射
 
-                float4 l = float4( pow(saturate(dot( viewDir,normalize(r+viewDir))), _Gloss) * lightCol,1.0);
-                float4 specular = _Specular*l;
-
-                // sample the texture
-                float4 col =float4( bakedGI, 1.0f)+float4( diffuse, 1.0f) +specular;
-                // float4 col =float4( normalize(_WorldSpaceCameraPos),1.0f);
-                return col;
+                return float4( Ambient, 1.0f) + Diffuse + Specular;
             }
             ENDHLSL
         }

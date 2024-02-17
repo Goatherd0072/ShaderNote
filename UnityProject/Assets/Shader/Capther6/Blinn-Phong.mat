@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: SpecularVertexLevel
-  m_Shader: {fileID: 4800000, guid: e96572082a2cf4148a407badb0ee6d68, type: 3}
+  m_Name: Blinn-Phong
+  m_Shader: {fileID: 4800000, guid: 505eec25896dc1c42b22c8bd495ce3df, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -97,7 +97,7 @@ Material:
     - _DstBlendAlpha: 0
     - _EnvironmentReflections: 1
     - _Glos: 20
-    - _Gloss: 0.199
+    - _Gloss: 0.041
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
@@ -117,10 +117,10 @@ Material:
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
-    - _Diffuse: {r: 1, g: 0, b: 0, a: 1}
+    - _Diffuse: {r: 0.57232696, g: 0.57232696, b: 0.57232696, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
-    - _Specular: {r: 0.22352958, g: 1, b: 0, a: 1}
+    - _Specular: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
 --- !u!114 &2481261224732066812
 MonoBehaviour:

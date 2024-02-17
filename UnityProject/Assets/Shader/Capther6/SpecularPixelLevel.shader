@@ -94,11 +94,11 @@ Shader "Chapter6/Specular_PixelLevel"
                 float lambert  = saturate(dot(lightDir,i.normalWS));
                 float4 Diffuse = lightCol*_Diffuse*lambert;
                 
-                //高光反射 Specular
-                float3 reflectDir = normalize(reflect(lightDir, i.normalWS));//反射方向
-                float3 viewDir = normalize(i.PosWS - _WorldSpaceCameraPos);//视角方向
+                //高光反射 Specular Phong
+                float3 reflectDir = normalize(reflect(-lightDir, i.normalWS));//反射方向
+                float3 viewDir = normalize(_WorldSpaceCameraPos - i.PosWS);//视角方向
                 float gloss = lerp(8,255,_Gloss);// 计算高光反射系数
-                float4 Specular = _Specular * lightCol * pow(saturate(dot( viewDir, reflectDir)), gloss) ;// 高光反射
+                float4 Specular = _Specular * lightCol * pow(saturate(dot(viewDir, reflectDir)), gloss) ;// 高光反射
 
                 return float4( Ambient, 1.0f) + Diffuse + Specular;
             }

@@ -34,7 +34,7 @@ MonoBehaviour:
   m_LODCrossFadeDitheringType: 1
   m_ShEvalMode: 0
   m_MainLightRenderingMode: 1
-  m_MainLightShadowsSupported: 0
+  m_MainLightShadowsSupported: 1
   m_MainLightShadowmapResolution: 1024
   m_AdditionalLightsRenderingMode: 0
   m_AdditionalLightsPerObjectLimit: 4
@@ -60,7 +60,7 @@ MonoBehaviour:
   m_SoftShadowQuality: 2
   m_AdditionalLightsCookieResolution: 2048
   m_AdditionalLightsCookieFormat: 3
-  m_UseSRPBatcher: 1
+  m_UseSRPBatcher: 0
   m_SupportsDynamicBatching: 0
   m_MixedLightingSupported: 1
   m_SupportsLightCookies: 1

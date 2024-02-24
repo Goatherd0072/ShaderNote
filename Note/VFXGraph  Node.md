@@ -1,8 +1,16 @@
+---
+title: VFX Graph Node介绍
+
+category:  VFX Graph 
+
+tags: [VFX Graph,粒子特效]
+---
+
 ## VFX Graph  Spawn
 
 选中Spawn Context，可以在Inspector配置循环参数
 
-![Figure explaining the Loop/Delay System](./assets/VFXGraph  Node/LoopDelaySystem.png)
+![Figure explaining the Loop/Delay System](./assets/VFXGraphNode/LoopDelaySystem.png)
 
 ## Spawn
 

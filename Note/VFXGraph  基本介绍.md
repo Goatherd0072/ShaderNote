@@ -1,6 +1,16 @@
+---
+title: Untiy VFX Graph 特效插件基本介绍
+
+category:  VFX Graph 
+
+tags: [VFX Graph,粒子特效]
+---
+
 # VFX Graph 基本介绍
 
 [TOC]
+
+<!-- toc -->
 
 ## 能做什么
 
@@ -41,7 +51,7 @@ VFX Graph可以分为三层
 - 第二层是特效制作家，可以在这个系统上生产特效资源。
 - 最上面这一层是开放给更高级的特效艺术家或TA同学，提供了自定义拓展的功能，note和block都可以扩展，可以自己定义一些节点。
 
-![image-20240222114345199](./assets/VFXGraph  基本介绍/image-20240222114345199.png)
+![image-20240222114345199](./assets/VFXGraph/image-20240222114345199.png)
 
 
 
@@ -105,7 +115,7 @@ Exposed的变量会有绿点。
 
 在Inspector中的Properties可以看到Exposed 的变量。复选框表示该值是否被更改过。
 
-![image-20240221164834420](./assets/VFXGraph  基本介绍/image-20240221164834420.png)
+![image-20240221164834420](./assets/VFXGraph/image-20240221164834420.png)
 
 ### Group Nodes and Sticky Notes
 

@@ -2,8 +2,12 @@ Shader "Chapter7/NormalMapTangentSpace"
 {
     Properties
     {
-        [MainTexture] _MainTex ("Texture", 2D) = "white" {}
-        _Diffuse ("Diffuse", Color) = (1,1,1,1)
+        [MainTexture] _BaseMap("Base Map (RGB) Smoothness / Alpha (A)", 2D) = "white" {}
+        [MainColor]   _BaseColor("Base Color", Color) = (1, 1, 1, 1)
+
+        [NoScaleOffset] _BumpMap("Normal Map", 2D) = "bump" {}
+        _BumpScale("Scale", Float) = 1.0
+
         _Specular ("Specular", Color) = (1,1,1,1)
         _Gloss ("Gloss", Range(0, 1)) = 0.5
 
@@ -13,7 +17,8 @@ Shader "Chapter7/NormalMapTangentSpace"
             // 以下行声明 _BaseMap_ST 变量，以便可以
             // 在片元着色器中使用 _BaseMap 变量。为了
             // 使平铺和偏移有效，有必要使用 _ST 后缀。
-            float4 _MainTex_ST;
+            float4 _BaseMap_ST;
+            float4 _BumpMap_ST;
         CBUFFER_END
         ENDHLSL
     }
@@ -32,16 +37,26 @@ Shader "Chapter7/NormalMapTangentSpace"
             // light
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
+            float4 _BaseColor;
+            float4 _Specular;
+            float _Gloss;
+            float _BumpScale;
+            TEXTURE2D( _BaseMap);
+            SAMPLER(sampler_BaseMap);
+            TEXTURE2D( _BumpMap);
+            SAMPLER(sampler_BumpMap);
+
 
             struct Attributes
             {
                 float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
                 float3 normal : NORMAL;
+                float3 tangent : TANGENT;
+                float2 uv : TEXCOORD0;
                 float2 lightmapUV	: TEXCOORD1;
             };
 
-            struct v2f
+            struct Varyings
             {
                 float2 uv : TEXCOORD0;
                 float4 PosCS : SV_POSITION;
@@ -50,33 +65,29 @@ Shader "Chapter7/NormalMapTangentSpace"
                 float3 normalWS: POSITION1;
             };
 
-            float4 _Diffuse;
-            float4 _Specular;
-            float _Gloss;
-            TEXTURE2D( _MainTex);
-            SAMPLER(sampler_MainTex);
             
-
-            v2f vert (Attributes v)
+            Varyings vert (Attributes v)
             {
-                v2f o;
+                Varyings o;
                 
+                // 坐标处理
                 VertexPositionInputs positionInputs = GetVertexPositionInputs(v.vertex.xyz);
                 VertexNormalInputs normalInputs = GetVertexNormalInputs(v.normal);
                 o.PosCS = positionInputs.positionCS;
                 o.PosWS = positionInputs.positionWS;
                 o.normalWS = normalInputs.normalWS;
 
+                //计算光照信息
                 OUTPUT_LIGHTMAP_UV(v.lightmapUV, unity_LightmapST, o.lightmapUV);
                 OUTPUT_SH(o.normalWS, o.vertexSH);
                 
-                o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+                o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
                 return o;
             }
 
-            float4 frag (v2f i) : SV_Target
+            float4 frag (Varyings i) : SV_Target
             {
-                float4 baseMap = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
+                float4 baseMap = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
 
                 // Get Baked GI 
                 half3 Ambient = SAMPLE_GI(i.lightmapUV, i.vertexSH, i.normalWS);
@@ -93,7 +104,7 @@ Shader "Chapter7/NormalMapTangentSpace"
 
                 // 漫反射 Diffuse
                 float lambert  = saturate(dot(lightDir,i.normalWS));
-                float4 Diffuse = lightCol*_Diffuse*lambert;
+                float4 Diffuse = lightCol*_BaseColor*lambert;
                 
                 //高光反射 Specular Blinn-Phong
                 float3 viewDir = normalize(_WorldSpaceCameraPos - i.PosWS);//视角方向

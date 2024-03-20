@@ -1,5 +1,6 @@
 Shader "Chapter7/NormalMapTangentSpace"
 {
+    // 在切线空间下计算法线贴图
     Properties
     {
         [MainTexture] _BaseMap("Base Map (RGB) Smoothness / Alpha (A)", 2D) = "white" {}
@@ -36,6 +37,7 @@ Shader "Chapter7/NormalMapTangentSpace"
             #pragma fragment frag
             // light
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityInput.hlsl"
 
             float4 _BaseColor;
             float4 _Specular;
@@ -63,9 +65,9 @@ Shader "Chapter7/NormalMapTangentSpace"
                 DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 1);
                 float3 PosWS : NORMAL1;
                 float3 normalWS: POSITION1;
+                float3x3 TBN : TEXCOORD2;
             };
-
-            
+           
             Varyings vert (Attributes v)
             {
                 Varyings o;
@@ -76,11 +78,18 @@ Shader "Chapter7/NormalMapTangentSpace"
                 o.PosCS = positionInputs.positionCS;
                 o.PosWS = positionInputs.positionWS;
                 o.normalWS = normalInputs.normalWS;
-
+                    
                 //计算光照信息
                 OUTPUT_LIGHTMAP_UV(v.lightmapUV, unity_LightmapST, o.lightmapUV);
                 OUTPUT_SH(o.normalWS, o.vertexSH);
-                
+
+                // 法线贴图
+                // 计算切线空间转换矩阵
+                float3 binormal = cross(v.normal, v.tangent);//tangent.w这是切线空间的手性（handedness），通常用于指示切线空间的方向。它可以是1或-1。
+                float3x3 TBN = float3x3(v.tangent, binormal, v.normal);
+                //TBN是一个正交矩阵，因为它的列向量是归一化且互相正交的。这个矩阵将对象空间中的向量转换到切线空间
+                o.TBN = TBN;
+
                 o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
                 return o;
             }
@@ -98,19 +107,30 @@ Shader "Chapter7/NormalMapTangentSpace"
                 float3 lightDir = normalize(mainLight.direction);
                 float4 lightCol = float4(mainLight.color, 1.0f);
 
+                float3 viewDir = normalize(_WorldSpaceCameraPos - i.PosWS);//视角方向
+                // 将光照方向和视角方向转换到切线空间
+                lightDir = mul(i.TBN, lightDir);
+                viewDir = mul(i.TBN, viewDir);
+
+                // 法线贴图
+                float3 normal = UnpackNormal(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, i.uv));
+
+                // Albedo
+                float3 albedo = SAMPLE_TEXTURE2D(_BaseMap,sampler_BaseMap,i.uv) *  _BaseColor.rgb;
+
                 // Mix Realtime and Baked GI
                 // 获取环境光照 Ambient
-                MixRealtimeAndBakedGI(mainLight, i.normalWS, Ambient);
+                MixRealtimeAndBakedGI(mainLight, normal, Ambient);
+                Ambient *= albedo;
 
                 // 漫反射 Diffuse
-                float lambert  = saturate(dot(lightDir,i.normalWS));
-                float4 Diffuse = lightCol*_BaseColor*lambert;
+                float lambert  = saturate(dot(lightDir,normal));
+                float4 Diffuse = float4( lightCol*albedo*lambert, 1.0f );
                 
-                //高光反射 Specular Blinn-Phong
-                float3 viewDir = normalize(_WorldSpaceCameraPos - i.PosWS);//视角方向
+                //高光反射 Specular Blinn-Phong     
                 float gloss = lerp(8,255,_Gloss);// 计算高光反射系数
                 float3 halfDir = normalize(lightDir + viewDir);
-                float4 Specular = _Specular * lightCol * pow(saturate(dot( i.normalWS, halfDir)), gloss) ;// 高光反射
+                float4 Specular = _Specular * lightCol * pow(saturate(dot( normal, halfDir)), gloss) ;// 高光反射
 
                 return float4( Ambient, 1.0f) + Diffuse + Specular;
             }

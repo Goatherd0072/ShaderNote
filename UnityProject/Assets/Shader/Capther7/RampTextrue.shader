@@ -1,13 +1,12 @@
-Shader "Chapter7/NormalMapWorldSpace"
+Shader "Chapter7/RampTextrue"
 {
-    // 在切线空间下计算法线贴图
+    // 渐变纹理
     Properties
     {
         [MainTexture] _BaseMap("Base Map (RGB) Smoothness / Alpha (A)", 2D) = "white" {}
         [MainColor]   _BaseColor("Base Color", Color) = (1, 1, 1, 1)
 
-        [NoScaleOffset] _BumpMap("Normal Map", 2D) = "bump" {}
-        _BumpScale("Scale", Float) = 1.0
+        _RampTex ("Ramp Texture", 2D) = "white" {}
 
         _Specular ("Specular", Color) = (1,1,1,1)
         _Gloss ("Gloss", Range(0, 1)) = 0.5
@@ -19,7 +18,7 @@ Shader "Chapter7/NormalMapWorldSpace"
             // 在片元着色器中使用 _BaseMap 变量。为了
             // 使平铺和偏移有效，有必要使用 _ST 后缀。
             float4 _BaseMap_ST;
-            float4 _BumpMap_ST;
+            float4 _RampTex_ST;
         CBUFFER_END
         ENDHLSL
     }
@@ -45,8 +44,8 @@ Shader "Chapter7/NormalMapWorldSpace"
             float _BumpScale;
             TEXTURE2D( _BaseMap);
             SAMPLER(sampler_BaseMap);
-            TEXTURE2D( _BumpMap);
-            SAMPLER(sampler_BumpMap);
+            TEXTURE2D( _RampTex);
+            SAMPLER(sampler_RampTex);
 
 
             struct Attributes
@@ -65,7 +64,6 @@ Shader "Chapter7/NormalMapWorldSpace"
                 DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 1);
                 float3 PosWS : NORMAL1;
                 float3 normalWS: POSITION1;
-                float3x3 worldTBN : TEXCOORD2;
             };
             
             Varyings vert (Attributes v)
@@ -82,13 +80,6 @@ Shader "Chapter7/NormalMapWorldSpace"
                 //计算光照信息
                 OUTPUT_LIGHTMAP_UV(v.lightmapUV, unity_LightmapST, o.lightmapUV);
                 OUTPUT_SH(o.normalWS, o.vertexSH);
-
-                // 法线贴图
-                // 计算法线切线转世界空间矩阵
-                float3 binormal = cross(v.normal, v.tangent.xyz) * v.tangent.w;
-                binormal =  TransformObjectToWorldNormal(binormal);
-                float4 tangentWS = float4(TransformObjectToWorldNormal(v.tangent.xyz), v.tangent.w);
-                o.worldTBN = float3x3(v.tangent.xyz, binormal, normalInputs.normalWS);                
 
                 o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
                 return o;
@@ -109,29 +100,27 @@ Shader "Chapter7/NormalMapWorldSpace"
 
                 float3 viewDir = normalize(_WorldSpaceCameraPos - i.PosWS);//视角方向
 
-
                 // 法线贴图计算
-                float3 normal = UnpackNormal(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, i.uv));
-                normal.xy *= _BumpScale;
-                normal.z = sqrt(1 - saturate(dot(normal.xy, normal.xy)));//通过xy值计算z值，确保z为正
-                normal = mul(i.worldTBN ,normal);
+                // float3 normal = UnpackNormal(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, i.uv));
 
                 // Albedo
                 float3 albedo = SAMPLE_TEXTURE2D(_BaseMap,sampler_BaseMap,i.uv) *  _BaseColor.rgb;
 
                 // Mix Realtime and Baked GI
                 // 获取环境光照 Ambient
-                MixRealtimeAndBakedGI(mainLight, normal, Ambient);
+                MixRealtimeAndBakedGI(mainLight, i.normalWS, Ambient);
                 Ambient *= albedo;
-
+                Ambient *=0.1;
                 // 漫反射 Diffuse
-                float lambert  = saturate(dot(lightDir,normal));
-                float4 Diffuse = float4( lightCol*albedo*lambert, 1.0f );
+                float lambert  = 0.5*dot(lightDir,i.normalWS)+0.5;
+                float3 rampCol = SAMPLE_TEXTURE2D(_RampTex, sampler_RampTex, float2(lambert,lambert)).rgb;
+
+                float4 Diffuse = float4( lightCol*albedo*rampCol, 1.0f );
                 
                 //高光反射 Specular Blinn-Phong     
                 float gloss = lerp(8,255,_Gloss);// 计算高光反射系数
                 float3 halfDir = normalize(lightDir + viewDir);
-                float4 Specular = _Specular * lightCol * pow(saturate(dot( normal, halfDir)), gloss) ;// 高光反射
+                float4 Specular = _Specular * lightCol * pow(saturate(dot( i.normalWS, halfDir)), gloss) ;// 高光反射
 
                 return float4( Ambient, 1.0f) + Diffuse + Specular;
             }

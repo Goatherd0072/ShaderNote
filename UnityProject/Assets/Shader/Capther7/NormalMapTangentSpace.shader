@@ -65,7 +65,7 @@ Shader "Chapter7/NormalMapTangentSpace"
                 DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 1);
                 float3 PosWS : NORMAL1;
                 float3 normalWS: POSITION1;
-                float3x3 TBN : TEXCOORD2;
+                float3x3 TangentTBN : TEXCOORD2;
             };
             
             Varyings vert (Attributes v)
@@ -88,7 +88,7 @@ Shader "Chapter7/NormalMapTangentSpace"
                 float3 binormal = cross(v.normal, v.tangent.xyz) * v.tangent.w;//tangent.w这是切线空间的手性（handedness），通常用于指示切线空间的方向。它可以是1或-1。
                 float3x3 TBN = float3x3(v.tangent.xyz, binormal, v.normal);
                 //TBN是一个正交矩阵，因为它的列向量是归一化且互相正交的。这个矩阵将对象空间中的向量转换到切线空间
-                o.TBN = TBN;
+                o.TangentTBN = TBN;
 
                 o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
                 return o;
@@ -109,8 +109,8 @@ Shader "Chapter7/NormalMapTangentSpace"
 
                 float3 viewDir = normalize(_WorldSpaceCameraPos - i.PosWS);//视角方向
                 // 将光照方向和视角方向转换到切线空间
-                lightDir = mul(i.TBN, lightDir);
-                viewDir = mul(i.TBN, viewDir);
+                lightDir = mul(i.TangentTBN, lightDir);
+                viewDir = mul(i.TangentTBN, viewDir);
 
                 // 法线贴图计算
                 float3 normal = UnpackNormal(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, i.uv));

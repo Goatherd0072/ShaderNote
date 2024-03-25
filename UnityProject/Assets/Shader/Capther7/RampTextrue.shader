@@ -110,9 +110,9 @@ Shader "Chapter7/RampTextrue"
                 // 获取环境光照 Ambient
                 MixRealtimeAndBakedGI(mainLight, i.normalWS, Ambient);
                 Ambient *= albedo;
-                Ambient *=0.1;
+                // Ambient *=0.1;
                 // 漫反射 Diffuse
-                float lambert  = 0.5*dot(lightDir,i.normalWS)+0.5;
+                float lambert  = 0.5f*dot(lightDir,i.normalWS)+0.5f;
                 float3 rampCol = SAMPLE_TEXTURE2D(_RampTex, sampler_RampTex, float2(lambert,lambert)).rgb;
 
                 float4 Diffuse = float4( lightCol*albedo*rampCol, 1.0f );

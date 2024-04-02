@@ -104,7 +104,7 @@ Shader "Chapter7/RampTextrue"
                 // float3 normal = UnpackNormal(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, i.uv));
 
                 // Albedo
-                float3 albedo = SAMPLE_TEXTURE2D(_BaseMap,sampler_BaseMap,i.uv) *  _BaseColor.rgb;
+                float3 albedo = baseMap *  _BaseColor.rgb;
 
                 // Mix Realtime and Baked GI
                 // 获取环境光照 Ambient

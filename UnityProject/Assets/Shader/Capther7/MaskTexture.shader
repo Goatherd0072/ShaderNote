@@ -123,7 +123,7 @@ Shader "Chapter7/MaskTexture"
                 normal.z = sqrt(1 - saturate(dot(normal.xy, normal.xy)));//通过xy值计算z值，确保z为正
 
                 // Albedo
-                float3 albedo = SAMPLE_TEXTURE2D(_BaseMap,sampler_BaseMap,i.uv) *  _BaseColor.rgb;
+                float3 albedo = baseMap *  _BaseColor.rgb;
 
                 // Mix Realtime and Baked GI
                 // 获取环境光照 Ambient

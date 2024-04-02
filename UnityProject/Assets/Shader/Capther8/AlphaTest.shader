@@ -1,6 +1,5 @@
-Shader "Chapter7/NormalMapWorldSpace"
+Shader "Chapter8/AlphaTest"
 {
-    // 在切线空间下计算法线贴图
     Properties
     {
         [MainTexture] _BaseMap("Base Map (RGB) Smoothness / Alpha (A)", 2D) = "white" {}
@@ -11,6 +10,8 @@ Shader "Chapter7/NormalMapWorldSpace"
 
         _Specular ("Specular", Color) = (1,1,1,1)
         _Gloss ("Gloss", Range(0, 1)) = 0.5
+
+        _AlphaCutOff("Alpha CutOff", Range(0,1)) = 0
 
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -26,12 +27,23 @@ Shader "Chapter7/NormalMapWorldSpace"
 
     SubShader
     {
-        Name "Lambert"
-        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline"  "LightMode"="UniversalForward" }
+        Tags
+        {
+            "IgnoreProjector" = "True"
+            "Queue" = "AlphaTest"
+            "RenderType" = "TransparentCutout" 
+            "RenderPipeline" = "UniversalPipeline"  
+        }
         LOD 200
-
+        
         Pass
         {
+            Name "AlphaTest"
+            Tags
+            {
+                "LightMode" = "UniversalForward"
+            }
+
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -43,6 +55,8 @@ Shader "Chapter7/NormalMapWorldSpace"
             float4 _Specular;
             float _Gloss;
             float _BumpScale;
+            float _AlphaCutOff;
+
             TEXTURE2D( _BaseMap);
             SAMPLER(sampler_BaseMap);
             TEXTURE2D( _BumpMap);
@@ -65,7 +79,7 @@ Shader "Chapter7/NormalMapWorldSpace"
                 DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 1);
                 float3 PosWS : NORMAL1;
                 float3 normalWS: POSITION1;
-                float3x3 worldTBN : TEXCOORD2;
+                float3x3 TangentTBN : TEXCOORD2;
             };
             
             Varyings vert (Attributes v)
@@ -84,11 +98,11 @@ Shader "Chapter7/NormalMapWorldSpace"
                 OUTPUT_SH(o.normalWS, o.vertexSH);
 
                 // 法线贴图
-                // 计算法线切线转世界空间矩阵
-                float3 binormal = cross(v.normal, v.tangent.xyz) * v.tangent.w;
-                binormal =  TransformObjectToWorldNormal(binormal);
-                float4 tangentWS = float4(TransformObjectToWorldNormal(v.tangent.xyz), v.tangent.w);
-                o.worldTBN = float3x3(v.tangent.xyz, binormal, normalInputs.normalWS);                
+                // 计算切线空间转换矩阵
+                float3 binormal = cross(v.normal, v.tangent.xyz) * v.tangent.w;//tangent.w这是切线空间的手性（handedness），通常用于指示切线空间的方向。它可以是1或-1。
+                float3x3 TBN = float3x3(v.tangent.xyz, binormal, v.normal);
+                //TBN是一个正交矩阵，因为它的列向量是归一化且互相正交的。这个矩阵将对象空间中的向量转换到切线空间
+                o.TangentTBN = TBN;
 
                 o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
                 return o;
@@ -97,6 +111,12 @@ Shader "Chapter7/NormalMapWorldSpace"
             float4 frag (Varyings i) : SV_Target
             {
                 float4 baseMap = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
+
+                // Alpha Test
+                clip(baseMap.a - _AlphaCutOff);
+                //等价于
+                // if(baseMap.a < _AlphaCutOff)
+                //     discard;
 
                 // Get Baked GI 
                 half3 Ambient = SAMPLE_GI(i.lightmapUV, i.vertexSH, i.normalWS);
@@ -108,13 +128,14 @@ Shader "Chapter7/NormalMapWorldSpace"
                 float4 lightCol = float4(mainLight.color, 1.0f);
 
                 float3 viewDir = normalize(_WorldSpaceCameraPos - i.PosWS);//视角方向
-
+                // 将光照方向和视角方向转换到切线空间
+                lightDir = mul(i.TangentTBN, lightDir);
+                viewDir = mul(i.TangentTBN, viewDir);
 
                 // 法线贴图计算
                 float3 normal = UnpackNormal(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, i.uv));
                 normal.xy *= _BumpScale;
                 normal.z = sqrt(1 - saturate(dot(normal.xy, normal.xy)));//通过xy值计算z值，确保z为正
-                normal = mul(i.worldTBN ,normal);
 
                 // Albedo
                 float3 albedo = baseMap *  _BaseColor.rgb;
@@ -138,4 +159,6 @@ Shader "Chapter7/NormalMapWorldSpace"
             ENDHLSL
         }
     }
+
+
 }

@@ -83,13 +83,13 @@ Shader "Chapter6/Lambert_PixelLevel"
                 // light info
                 Light mainLight = GetMainLight();
                 float3 lightDir = normalize(mainLight.direction);
-                float4 lightCol = float4(mainLight.color, 1.0f);
+                float3 lightCol = mainLight.color;
 
                 float lambert = saturate(dot(i.normalWS, lightDir));
-                float4 diffuse =  lightCol*_Diffuse*lambert;
+                float3 diffuse =  lightCol*_Diffuse.xyz*lambert;
                 MixRealtimeAndBakedGI(mainLight, i.normalWS, bakedGI);
                 // sample the texture
-                float4 col =float4( bakedGI, 1.0f)+ diffuse;
+                float4 col =float4( bakedGI + diffuse, 1.0f);
                 col*=baseMap;
                 return col;
             }

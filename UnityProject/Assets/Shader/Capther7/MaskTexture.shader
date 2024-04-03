@@ -110,7 +110,7 @@ Shader "Chapter7/MaskTexture"
                 // 获取主光源
                 Light mainLight = GetMainLight();
                 float3 lightDir = normalize(mainLight.direction);
-                float4 lightCol = float4(mainLight.color, 1.0f);
+                float3 lightCol = mainLight.color;
 
                 float3 viewDir = normalize(_WorldSpaceCameraPos - i.PosWS);//视角方向
                 // 将光照方向和视角方向转换到切线空间
@@ -132,7 +132,7 @@ Shader "Chapter7/MaskTexture"
 
                 // 漫反射 Diffuse
                 float lambert  = saturate(dot(lightDir,normal));
-                float4 Diffuse = float4( lightCol*albedo*lambert, 1.0f );
+                float3 Diffuse = lightCol*albedo*lambert;
                 
                 //高光反射 Specular Blinn-Phong     
                 float gloss = lerp(8,255,_Gloss);// 计算高光反射系数
@@ -140,9 +140,9 @@ Shader "Chapter7/MaskTexture"
 
                 //Specular Mask
                 float specMask = SAMPLE_TEXTURE2D(_SpecularMask, sampler_SpecularMask, i.uv).r * _SpecularMaskScale;
-                float4 Specular = _Specular * lightCol * pow(saturate(dot( normal, halfDir)), gloss) * specMask ;// 高光反射
+                float3 Specular = _Specular.xyz * lightCol * pow(saturate(dot( normal, halfDir)), gloss) * specMask ;// 高光反射
 
-                return float4( Ambient, 1.0f) + Diffuse + Specular;
+                return float4( Ambient + Diffuse + Specular, 1.0f);
             }
             ENDHLSL
         }

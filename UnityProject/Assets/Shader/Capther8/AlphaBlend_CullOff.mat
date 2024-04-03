@@ -83,7 +83,7 @@ Material:
     m_Floats:
     - _AlphaClip: 0
     - _AlphaCutOff: 0
-    - _AlphaScale: 0.893
+    - _AlphaScale: 0.816
     - _AlphaToMask: 0
     - _Blend: 0
     - _BlendModePreserveSpecular: 1

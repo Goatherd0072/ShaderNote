@@ -64,15 +64,15 @@ Shader "Chapter6/Lambert_VertexLevel"
 
                 Light mainLight = GetMainLight();
                 float3 lightDir = normalize(mainLight.direction);
-                float4 lightCol = float4(mainLight.color, 1.0f);
+                float3 lightCol = mainLight.color;
 
                 float2 uv = TRANSFORM_TEX(v.uv, _MainTex);
                 float4 baseMap = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv);
                 
                 float lambert = saturate(dot(normalInputs.normalWS, lightDir));
-                float4 diffuse =  lightCol*_Diffuse*lambert;
+                float3 diffuse =  lightCol*_Diffuse.xyz*lambert;
 
-                o.color = float4(bakedGI,1.0f)+diffuse;
+                o.color = float4(bakedGI + diffuse ,1.0f);
 
                 return o;
             }

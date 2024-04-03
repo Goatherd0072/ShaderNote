@@ -84,7 +84,7 @@ Shader "Chapter6/Specular_PixelLevel"
                 // 获取主光源
                 Light mainLight = GetMainLight();
                 float3 lightDir = normalize(mainLight.direction);
-                float4 lightCol = float4(mainLight.color, 1.0f);
+                float3 lightCol = mainLight.color;
 
                 // Mix Realtime and Baked GI
                 // 获取环境光照 Ambient
@@ -92,15 +92,15 @@ Shader "Chapter6/Specular_PixelLevel"
 
                 // 漫反射 Diffuse
                 float lambert  = saturate(dot(lightDir,i.normalWS));
-                float4 Diffuse = lightCol*_Diffuse*lambert;
+                float3 Diffuse = lightCol*_Diffuse.xyz*lambert;
                 
                 //高光反射 Specular Phong
                 float3 reflectDir = normalize(reflect(-lightDir, i.normalWS));//反射方向
                 float3 viewDir = normalize(_WorldSpaceCameraPos - i.PosWS);//视角方向
                 float gloss = lerp(8,255,_Gloss);// 计算高光反射系数
-                float4 Specular = _Specular * lightCol * pow(saturate(dot(viewDir, reflectDir)), gloss) ;// 高光反射
+                float3 Specular = _Specular.xyz * lightCol * pow(saturate(dot(viewDir, reflectDir)), gloss) ;// 高光反射
 
-                return float4( Ambient, 1.0f) + Diffuse + Specular;
+                return float4( Ambient + Diffuse + Specular, 1.0f);
             }
             ENDHLSL
         }

@@ -96,7 +96,7 @@ Shader "Chapter7/RampTextrue"
                 // 获取主光源
                 Light mainLight = GetMainLight();
                 float3 lightDir = normalize(mainLight.direction);
-                float4 lightCol = float4(mainLight.color, 1.0f);
+                float3 lightCol = mainLight.color;
 
                 float3 viewDir = normalize(_WorldSpaceCameraPos - i.PosWS);//视角方向
 
@@ -115,14 +115,14 @@ Shader "Chapter7/RampTextrue"
                 float lambert  = 0.5f*dot(lightDir,i.normalWS)+0.5f;
                 float3 rampCol = SAMPLE_TEXTURE2D(_RampTex, sampler_RampTex, float2(lambert,lambert)).rgb;
 
-                float4 Diffuse = float4( lightCol*albedo*rampCol, 1.0f );
+                float3 Diffuse = lightCol*albedo*rampCol;
                 
                 //高光反射 Specular Blinn-Phong     
                 float gloss = lerp(8,255,_Gloss);// 计算高光反射系数
                 float3 halfDir = normalize(lightDir + viewDir);
-                float4 Specular = _Specular * lightCol * pow(saturate(dot( i.normalWS, halfDir)), gloss) ;// 高光反射
+                float3 Specular = _Specular.xyz * lightCol * pow(saturate(dot( i.normalWS, halfDir)), gloss) ;// 高光反射
 
-                return float4( Ambient, 1.0f) + Diffuse + Specular;
+                return float4( Ambient + Diffuse + Specular, 1.0f);
             }
             ENDHLSL
         }

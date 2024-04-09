@@ -155,9 +155,9 @@ Shader "Chapter9/BasePase"
                         Light light = GetAdditionalLight(index, i.PosWS);     
                         //获取其它的副光源世界位置
                         
-                        half3 diffuseAdd = light.color*Diffuse.rgb * max(0, dot(i.normalWS, light.direction));
-                        half3 halfDir = normalize(light.direction + viewDir);
-                        half3 specularAdd = light.color * Specular.rgb * pow(max(0, dot(i.normalWS, halfDir)), _Gloss);
+                        half3 diffuseAdd = light.color*_BaseColor.rgb * saturate(dot(light.direction , i.normalWS));
+                        half3 halfDir1 = normalize(light.direction + viewDir);
+                        half3 specularAdd = light.color * Specular.rgb * pow(saturate(dot(i.normalWS, halfDir1)), gloss);
                         //计算副光源的高光颜色
                         output += (diffuseAdd + specularAdd)*light.distanceAttenuation;
                         //上面单颜色增加新计算的颜色

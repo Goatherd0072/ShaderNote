@@ -1,4 +1,4 @@
-Shader "Chapter9/BasePass"
+Shader "Chapter9/BasePassShadow"
 {
     // 在切线空间下计算法线贴图
     Properties
@@ -171,6 +171,55 @@ Shader "Chapter9/BasePass"
             }
             ENDHLSL
         }
+
+        Pass
+        {
+            Tags { "LightMode"="ShadowCaster" }
+
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            // light
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityInput.hlsl"
+
+            struct Attributes
+            {
+                float4 vertex : POSITION;
+                float3 normal : NORMAL;
+                float4 tangent : TANGENT;
+                float2 uv : TEXCOORD0;
+                float2 lightmapUV	: TEXCOORD1;
+            };
+
+            struct Varyings
+            {
+                float2 uv : TEXCOORD0;
+                float4 PosCS : SV_POSITION;
+                DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 1);
+                float3 PosWS : NORMAL1;
+                float3 normalWS: POSITION1;
+                float3x3 TangentTBN : TEXCOORD2;
+            };
+            
+            Varyings vert (Attributes v)
+            {
+                Varyings o;
+                
+                return o;
+            }
+
+            float4 frag (Varyings i) : SV_Target
+            {
+                
+                return i.PosCS;
+            }
+            ENDHLSL
+        }
     }
+
+
     // FallBack "Specular"
 }

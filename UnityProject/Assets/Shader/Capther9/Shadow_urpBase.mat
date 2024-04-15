@@ -20,7 +20,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: BasePaseShadow
+  m_Name: Shadow_urpBase
   m_Shader: {fileID: 4800000, guid: d6251dc5b6b7b904aa56b84e2681445d, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0

@@ -1,0 +1,229 @@
+Shader "Chapter9/Shadow_Trans"
+{
+    Properties
+    {
+        [MainTexture] _BaseMap("Base Map (RGB) Smoothness / Alpha (A)", 2D) = "white" {}
+        [MainColor]   _BaseColor("Base Color", Color) = (1, 1, 1, 1)
+
+        [NoScaleOffset] _BumpMap("Normal Map", 2D) = "bump" {}
+        _BumpScale("Scale", Float) = 1.0
+
+        _Specular ("Specular", Color) = (1,1,1,1)
+        _Gloss ("Gloss", Range(0, 1)) = 0.5
+
+        _AlphaCutOff("Alpha CutOff", Range(0,1)) = 0
+
+        HLSLINCLUDE
+        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+        CBUFFER_START(UnityPerMaterial)
+            // 以下行声明 _BaseMap_ST 变量，以便可以
+            // 在片元着色器中使用 _BaseMap 变量。为了
+            // 使平铺和偏移有效，有必要使用 _ST 后缀。
+            float4 _BaseMap_ST;
+            float4 _BumpMap_ST;
+        CBUFFER_END
+        ENDHLSL
+    }
+
+    SubShader
+    {
+        Tags
+        {
+            "IgnoreProjector" = "True"
+            "Queue" = "AlphaTest"
+            "RenderType" = "TransparentCutout" 
+            "RenderPipeline" = "UniversalPipeline"  
+        }
+        LOD 200
+        
+        Pass
+        {
+            Name "AlphaTest"
+            Tags
+            {
+                "LightMode" = "UniversalForward"
+            }
+            Cull Off
+
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            // light
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityInput.hlsl"
+
+            // 接收阴影关键字
+            // 材质
+            #pragma shader_feature_local _RECEIVE_SHADOWS_OFF
+            // 渲染管线
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+
+
+            float4 _BaseColor;
+            float4 _Specular;
+            float _Gloss;
+            float _BumpScale;
+            float _AlphaCutOff;
+
+            TEXTURE2D( _BaseMap);
+            SAMPLER(sampler_BaseMap);
+            TEXTURE2D( _BumpMap);
+            SAMPLER(sampler_BumpMap);
+
+
+            struct Attributes
+            {
+                float4 vertex : POSITION;
+                float3 normal : NORMAL;
+                float4 tangent : TANGENT;
+                float2 uv : TEXCOORD0;
+                float2 lightmapUV	: TEXCOORD1;
+            };
+
+            struct Varyings
+            {
+                float2 uv : TEXCOORD0;
+                float4 PosCS : SV_POSITION;
+                DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 1);
+                float3 PosWS : NORMAL1;
+                float3 normalWS: POSITION1;
+                float3x3 TangentTBN : TEXCOORD2;
+            };
+            
+            Varyings vert (Attributes v)
+            {
+                Varyings o;
+                
+                // 坐标处理
+                VertexPositionInputs positionInputs = GetVertexPositionInputs(v.vertex.xyz);
+                VertexNormalInputs normalInputs = GetVertexNormalInputs(v.normal);
+                o.PosCS = positionInputs.positionCS;
+                o.PosWS = positionInputs.positionWS;
+                o.normalWS = normalInputs.normalWS;
+                
+                //计算光照信息
+                OUTPUT_LIGHTMAP_UV(v.lightmapUV, unity_LightmapST, o.lightmapUV);
+                OUTPUT_SH(o.normalWS, o.vertexSH);
+
+                // 法线贴图
+                // 计算切线空间转换矩阵
+                float3 binormal = cross(v.normal, v.tangent.xyz) * v.tangent.w;//tangent.w这是切线空间的手性（handedness），通常用于指示切线空间的方向。它可以是1或-1。
+                float3x3 TBN = float3x3(v.tangent.xyz, binormal, v.normal);
+                //TBN是一个正交矩阵，因为它的列向量是归一化且互相正交的。这个矩阵将对象空间中的向量转换到切线空间
+                o.TangentTBN = TBN;
+
+                o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
+                return o;
+            }
+
+            float4 frag (Varyings i) : SV_Target
+            {
+                float4 baseMap = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
+
+                // Alpha Test
+                clip(baseMap.a - _AlphaCutOff);
+                //等价于
+                // if(baseMap.a < _AlphaCutOff)
+                //     discard;
+
+                // Get Baked GI 
+                half3 Ambient = SAMPLE_GI(i.lightmapUV, i.vertexSH, i.normalWS);
+
+                // light info
+                // 获取主光源
+                Light mainLight = GetMainLight();
+                float3 lightDir = normalize(mainLight.direction);
+                float3 lightCol = mainLight.color;
+
+                float3 viewDir = normalize(_WorldSpaceCameraPos - i.PosWS);//视角方向
+                // 将光照方向和视角方向转换到切线空间
+                lightDir = mul(i.TangentTBN, lightDir);
+                viewDir = mul(i.TangentTBN, viewDir);
+
+                // 法线贴图计算
+                float3 normal = UnpackNormal(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, i.uv));
+                normal.xy *= _BumpScale;
+                normal.z = sqrt(1 - saturate(dot(normal.xy, normal.xy)));//通过xy值计算z值，确保z为正
+
+                // Albedo
+                float3 albedo = baseMap *  _BaseColor.rgb;
+
+                // Mix Realtime and Baked GI
+                // 获取环境光照 Ambient
+                MixRealtimeAndBakedGI(mainLight, normal, Ambient);
+                Ambient *= albedo;
+
+                // 漫反射 Diffuse
+                float lambert  = saturate(dot(lightDir,normal));
+                float3 Diffuse = lightCol*albedo*lambert;
+                
+                //高光反射 Specular Blinn-Phong     
+                float gloss = lerp(8,255,_Gloss);// 计算高光反射系数
+                float3 halfDir = normalize(lightDir + viewDir);
+                float3 Specular = _Specular.xyz * lightCol * pow(saturate(dot( normal, halfDir)), gloss) ;// 高光反射
+
+                return float4( Ambient + Diffuse + Specular, 1.0f);
+            }
+            ENDHLSL
+        }
+        
+        Pass
+        {
+            Tags { "LightMode"="ShadowCaster" }
+            ZWrite On
+            ZTest LEqual
+            Cull Off
+            // HLSLPROGRAM
+            // #pragma vertex ShadowPassVertex
+            // #pragma fragment ShadowPassFragment
+
+            // #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            // #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
+            // ENDHLSL
+            HLSLPROGRAM
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+
+
+            float3 _LightDirection;
+            float3 _LightPosition;
+
+            #pragma vertex vert
+            #pragma fragment frag
+
+            struct Attributes
+            {
+                float4 vertex : POSITION;
+                float3 normal : NORMAL;
+                float2 uv : TEXCOORD0;
+            };
+
+            struct Varyings
+            {
+                float4 pos : SV_POSITION;
+            };
+
+            Varyings vert (Attributes v)
+            {
+                Varyings o;
+                
+                float3 worldPos = TransformObjectToWorld(v.vertex.xyz);
+                float3 worldNormal = TransformObjectToWorldNormal(v.normal);
+                o.pos = TransformWorldToHClip(ApplyShadowBias(worldPos, worldNormal, _LightDirection));
+                return o;
+            }
+
+            float4 frag (Varyings i) : SV_Target
+            {
+                return 0;
+            }
+
+            ENDHLSL
+        }
+    }
+
+
+    // FallBack "Specular"
+}

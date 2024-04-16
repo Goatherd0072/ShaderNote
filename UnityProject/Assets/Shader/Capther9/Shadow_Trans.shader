@@ -22,6 +22,12 @@ Shader "Chapter9/Shadow_Trans"
             float4 _BaseMap_ST;
             float4 _BumpMap_ST;
         CBUFFER_END
+
+        float4 _BaseColor;
+        float _AlphaCutOff;
+
+        TEXTURE2D( _BaseMap);
+        SAMPLER(sampler_BaseMap);
         ENDHLSL
     }
 
@@ -60,15 +66,10 @@ Shader "Chapter9/Shadow_Trans"
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
 
-
-            float4 _BaseColor;
             float4 _Specular;
             float _Gloss;
             float _BumpScale;
-            float _AlphaCutOff;
 
-            TEXTURE2D( _BaseMap);
-            SAMPLER(sampler_BaseMap);
             TEXTURE2D( _BumpMap);
             SAMPLER(sampler_BumpMap);
 
@@ -175,17 +176,27 @@ Shader "Chapter9/Shadow_Trans"
             ZWrite On
             ZTest LEqual
             Cull Off
+
             // HLSLPROGRAM
+
+            // #pragma shader_feature_local _ALPHATEST_ON
+            // #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+
             // #pragma vertex ShadowPassVertex
             // #pragma fragment ShadowPassFragment
+
+            // #pragma multi_compile_fragment _ LOD_FADE_CROSSFADE
+
+            // #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
 
             // #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             // #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
             // ENDHLSL
+
             HLSLPROGRAM
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
-
 
             float3 _LightDirection;
             float3 _LightPosition;
@@ -197,11 +208,12 @@ Shader "Chapter9/Shadow_Trans"
             {
                 float4 vertex : POSITION;
                 float3 normal : NORMAL;
-                float2 uv : TEXCOORD0;
+                float2 texcood : TEXCOORD0;
             };
 
             struct Varyings
             {
+                float2 uv : TEXCOORD0;
                 float4 pos : SV_POSITION;
             };
 
@@ -212,11 +224,17 @@ Shader "Chapter9/Shadow_Trans"
                 float3 worldPos = TransformObjectToWorld(v.vertex.xyz);
                 float3 worldNormal = TransformObjectToWorldNormal(v.normal);
                 o.pos = TransformWorldToHClip(ApplyShadowBias(worldPos, worldNormal, _LightDirection));
+
+                o.uv = TRANSFORM_TEX(v.texcood, _BaseMap);
+
                 return o;
             }
 
             float4 frag (Varyings i) : SV_Target
             {
+                float4 baseMap = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
+                clip(baseMap.a - _AlphaCutOff);
+
                 return 0;
             }
 

@@ -1,11 +1,13 @@
-Shader "Chapter10/Reflect"
+Shader "Chapter10/Reflect_SchlickFresnel"
 {
+    // Schlick 菲涅尔反射 Fresnel
     Properties
     {
         [MainTexture] _BaseMap("Base Map (RGB) Smoothness / Alpha (A)", 2D) = "white" {}
         [MainColor]   _BaseColor("Base Color", Color) = (1, 1, 1, 1)
 
         _reflectMap("Reflect Map", Cube) = "_skybox" {}
+        _FresnelScale("Fresnel Scale", Range(0, 1)) = 0.5
 
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -54,6 +56,7 @@ Shader "Chapter10/Reflect"
             //多光源计算的开关变量
 
             float4 _BaseColor;
+            float _FresnelScale;
             TEXTURE2D( _BaseMap);
             SAMPLER(sampler_BaseMap);
             TEXTURECUBE( _reflectMap);
@@ -72,6 +75,7 @@ Shader "Chapter10/Reflect"
                 float2 uv : TEXCOORD0;
                 DECLARE_LIGHTMAP_OR_SH(lightmapUV, vertexSH, 1);
                 float3 worldReflect : TEXCOORD2;
+                float3 worldView : TEXCOORD3;
                 float4 PosCS : SV_POSITION;
                 float3 PosWS : NORMAL1;
                 float3 normalWS: POSITION1;
@@ -93,9 +97,8 @@ Shader "Chapter10/Reflect"
                 o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
 
                 // 计算反射向量
-                float3 worldView = GetCameraPositionWS() - o.PosWS;
-                o.worldReflect = reflect(-worldView, (o.normalWS));
-
+                o.worldView = GetCameraPositionWS() - o.PosWS;
+                o.worldReflect = reflect(-o.worldView , (o.normalWS));
                 return o;
             }
 
@@ -119,9 +122,14 @@ Shader "Chapter10/Reflect"
 
                 // 漫反射 Diffuse
                 float lambert  = saturate(dot(lightDir,i.normalWS));
-                float3 Diffuse = lightCol * _BaseColor.xyz * reflectMap * baseMap.rgb;
+                float3 Diffuse = lightCol * _BaseColor.xyz  * baseMap.rgb * lambert;
                 
-                return float4(reflectMap.xyz , 1.0f);
+                // Schlick 菲涅尔反射 Fresnel
+                float fresnel = _FresnelScale + (1.0f - _FresnelScale) * (1.0f - pow((i.worldView * i.normalWS),5.0f) );
+
+                float3 output = Ambient + lerp(Diffuse, reflectMap, _FresnelScale) * mainLight.distanceAttenuation;
+                
+                return float4(output , 1.0f);
             }
             ENDHLSL
         }
